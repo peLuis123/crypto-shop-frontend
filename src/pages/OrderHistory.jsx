@@ -9,6 +9,8 @@ const OrderHistory = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [selectedOrder, setSelectedOrder] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const [stats, setStats] = useState([
         { label: 'Total Orders', value: '0', color: 'text-gray-900' },
         { label: 'Pending Payment', value: '0', color: 'text-orange-500' },
@@ -101,6 +103,16 @@ const OrderHistory = () => {
             hour: '2-digit',
             minute: '2-digit'
         });
+    };
+
+    const handleViewDetails = (order) => {
+        setSelectedOrder(order);
+        setIsModalOpen(true);
+    };
+
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setSelectedOrder(null);
     };
 
     return (
@@ -232,7 +244,10 @@ const OrderHistory = () => {
                                                 {getStatusBadge(order.status, getStatusColor(order.status))}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <button className="text-gray-600 hover:text-emerald-500 font-semibold text-sm flex items-center gap-1">
+                                                <button 
+                                                    onClick={() => handleViewDetails(order)}
+                                                    className="text-gray-600 hover:text-emerald-500 font-semibold text-sm flex items-center gap-1"
+                                                >
                                                     Details
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -270,6 +285,107 @@ const OrderHistory = () => {
                     Contact Support
                 </button>
             </div>
+
+            {/* Order Details Modal */}
+            {isModalOpen && selectedOrder && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={closeModal}>
+                    <div className="bg-white rounded-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <div className="border-b-4 border-emerald-500 rounded-t-2xl"></div>
+                        
+                        <div className="p-8">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-900">{selectedOrder.orderId}</h2>
+                                    <p className="text-sm text-gray-500">{formatDate(selectedOrder.createdAt)}</p>
+                                </div>
+                                <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div className="mb-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <span className="text-sm font-semibold text-gray-500">Status</span>
+                                    {getStatusBadge(selectedOrder.status, getStatusColor(selectedOrder.status))}
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <div className="bg-gray-50 rounded-lg p-4">
+                                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Amount</p>
+                                        <p className="text-2xl font-bold text-gray-900">{selectedOrder.total.toFixed(2)} USDT</p>
+                                        <p className="text-xs text-gray-400">${selectedOrder.total.toFixed(2)} USD</p>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-lg p-4">
+                                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Payment Method</p>
+                                        <p className="text-lg font-bold text-gray-900">{selectedOrder.paymentMethod || 'TRC-20'}</p>
+                                        <p className="text-xs text-gray-400">TRON Network</p>
+                                    </div>
+                                </div>
+
+                                {selectedOrder.transactionHash && (
+                                    <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Transaction Hash</p>
+                                        <p className="text-xs font-mono text-gray-900 break-all">{selectedOrder.transactionHash}</p>
+                                    </div>
+                                )}
+
+                                {selectedOrder.walletAddress && (
+                                    <div className="grid grid-cols-2 gap-4 mb-4">
+                                        <div className="bg-gray-50 rounded-lg p-4">
+                                            <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Your Wallet</p>
+                                            <p className="text-xs font-mono text-gray-900 break-all">{selectedOrder.walletAddress}</p>
+                                        </div>
+                                        <div className="bg-gray-50 rounded-lg p-4">
+                                            <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Merchant Wallet</p>
+                                            <p className="text-xs font-mono text-gray-900 break-all">{selectedOrder.merchantAddress || 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="border-t border-gray-200 pt-6">
+                                <h3 className="font-bold text-gray-900 mb-4">Products</h3>
+                                <div className="space-y-3">
+                                    {selectedOrder.products.map((product, idx) => (
+                                        <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-3xl">📦</span>
+                                                <div>
+                                                    <p className="font-semibold text-gray-900">{product.name}</p>
+                                                    {product.color && (
+                                                        <p className="text-xs text-gray-500">Color: {product.color}</p>
+                                                    )}
+                                                    <p className="text-xs text-gray-500">Quantity: {product.quantity}</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-bold text-gray-900">{product.price.toFixed(2)} USDT</p>
+                                                <p className="text-xs text-gray-500">x{product.quantity}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="mt-4 pt-4 border-t border-gray-200">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-bold text-gray-900">Total</span>
+                                        <span className="text-2xl font-bold text-emerald-500">{selectedOrder.total.toFixed(2)} USDT</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={closeModal}
+                                className="w-full mt-6 py-3 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-lg transition-all"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
