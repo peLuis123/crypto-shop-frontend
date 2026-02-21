@@ -1,21 +1,24 @@
 import { useState } from 'react';
+import { useCart } from '../context/CartContext';
+import { useToast } from '../context/ToastContext';
 
 const CartModal = ({ isOpen, onClose, cartItems, onCheckout }) => {
+    const { updateQuantity: updateCartQuantity, removeFromCart } = useCart();
+    const { showToast } = useToast();
     if (!isOpen) return null;
 
-    const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const networkFee = -1.20;
-    const discount = 0.00;
-    const total = subtotal + networkFee + discount;
+    const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
     const updateQuantity = (itemId, delta) => {
-        // TODO: Implement quantity update
-        console.log('Update quantity:', itemId, delta);
+        updateCartQuantity(itemId, delta);
+        if (delta > 0) {
+            showToast('Quantity updated', 'info');
+        }
     };
 
     const removeItem = (itemId) => {
-        // TODO: Implement item removal
-        console.log('Remove item:', itemId);
+        removeFromCart(itemId);
+        showToast('Item removed from cart', 'error');
     };
 
     return (
@@ -34,21 +37,37 @@ const CartModal = ({ isOpen, onClose, cartItems, onCheckout }) => {
                 </div>
 
                 <div className="grid grid-cols-3 gap-6 p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+                    {cartItems.length === 0 ? (
+                        <div className="col-span-3 text-center py-16">
+                            <svg className="w-24 h-24 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                            </svg>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Your cart is empty</h3>
+                            <p className="text-gray-500 mb-6">Add some products to get started!</p>
+                            <button
+                                onClick={onClose}
+                                className="px-6 py-3 bg-emerald-400 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-all"
+                            >
+                                Start Shopping
+                            </button>
+                        </div>
+                    ) : (
+                        <>
                     <div className="col-span-2 space-y-4">
                         {cartItems.map((item) => (
-                            <div key={item.id} className="bg-gray-50 rounded-xl p-4 flex items-center gap-4">
+                            <div key={item._id} className="bg-gray-50 rounded-xl p-4 flex items-center gap-4">
                                 <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded-lg bg-white" />
                                 <div className="flex-1">
                                     <h3 className="font-bold text-gray-900">{item.name}</h3>
                                     <p className="text-xs text-gray-500">Color: {item.color || 'N/A'}</p>
-                                    <button onClick={() => removeItem(item.id)} className="text-xs text-red-500 hover:text-red-600 font-semibold mt-1">
+                                    <button onClick={() => removeItem(item._id)} className="text-xs text-red-500 hover:text-red-600 font-semibold mt-1">
                                         🗑 REMOVE
                                     </button>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <button onClick={() => updateQuantity(item.id, -1)} className="w-8 h-8 border border-gray-300 rounded-lg hover:bg-gray-100">-</button>
+                                    <button onClick={() => updateQuantity(item._id, -1)} className="w-8 h-8 border border-gray-300 rounded-lg hover:bg-gray-100">-</button>
                                     <span className="w-8 text-center font-semibold">{item.quantity}</span>
-                                    <button onClick={() => updateQuantity(item.id, 1)} className="w-8 h-8 border border-gray-300 rounded-lg hover:bg-gray-100">+</button>
+                                    <button onClick={() => updateQuantity(item._id, 1)} className="w-8 h-8 border border-gray-300 rounded-lg hover:bg-gray-100">+</button>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-lg font-bold text-gray-900">{item.price.toFixed(2)} USDT</p>
@@ -67,21 +86,7 @@ const CartModal = ({ isOpen, onClose, cartItems, onCheckout }) => {
 
                     <div className="bg-gray-50 rounded-xl p-6 h-fit">
                         <h3 className="font-bold text-gray-900 mb-4">Order Summary</h3>
-                        <div className="space-y-3 mb-6">
-                            <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Subtotal</span>
-                                <span className="font-semibold">{subtotal.toFixed(2)} USDT</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">TRC-20 Network Fee ⓘ</span>
-                                <span className="font-semibold text-gray-600">{networkFee.toFixed(2)} USDT</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Discount</span>
-                                <span className="font-semibold text-emerald-500">{discount.toFixed(2)} USDT</span>
-                            </div>
-                        </div>
-
+                        
                         <div className="border-t border-gray-200 pt-4 mb-6">
                             <div className="flex justify-between items-center mb-2">
                                 <span className="font-bold text-gray-900">Total Amount</span>
@@ -97,7 +102,8 @@ const CartModal = ({ isOpen, onClose, cartItems, onCheckout }) => {
 
                         <button
                             onClick={onCheckout}
-                            className="w-full py-3.5 bg-emerald-400 hover:bg-emerald-500 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2"
+                            disabled={cartItems.length === 0 || total === 0}
+                            className="w-full py-3.5 bg-emerald-400 hover:bg-emerald-500 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-400"
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -132,6 +138,8 @@ const CartModal = ({ isOpen, onClose, cartItems, onCheckout }) => {
                             </div>
                         </div>
                     </div>
+                        </>
+                    )}
                 </div>
             </div>
         </div>
