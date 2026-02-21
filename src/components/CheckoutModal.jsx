@@ -12,14 +12,19 @@ const CheckoutModal = ({ isOpen, onClose, amount, onSuccess }) => {
     const [paymentStatus, setPaymentStatus] = useState('waiting');
     const [timeLeft, setTimeLeft] = useState(14 * 60);
     const [merchantAddress, setMerchantAddress] = useState('');
-    const [transactionHash, setTransactionHash] = useState('');
     const [error, setError] = useState('');
     const [orderCreated, setOrderCreated] = useState(false);
+    const [pendingOrderId, setPendingOrderId] = useState(null);
 
     const exactAmount = amount;
 
     useEffect(() => {
         if (isOpen) {
+            setPaymentStatus('waiting');
+            setError('');
+            setOrderCreated(false);
+            setPendingOrderId(null);
+            setTimeLeft(14 * 60);
             setMerchantAddress('TLR3qG5yjpGKzW9x1B2n4Rr6S7T8U9v');
             refreshWallet();
             const timer = setInterval(() => {
@@ -40,11 +45,6 @@ const CheckoutModal = ({ isOpen, onClose, amount, onSuccess }) => {
     };
 
     const handleConfirmPayment = async () => {
-        if (!transactionHash.trim()) {
-            setError('Please enter the transaction hash');
-            return;
-        }
-
         if (amount === 0) {
             setError('Invalid amount. Cannot process payment.');
             showToast('Cannot process payment with zero amount', 'error');
@@ -65,28 +65,41 @@ const CheckoutModal = ({ isOpen, onClose, amount, onSuccess }) => {
                 })),
                 total: amount,
                 paymentMethod: 'TRC-20',
-                transactionHash: transactionHash,
                 walletAddress: walletAddress,
                 merchantAddress: merchantAddress
             };
 
-            const response = await orderService.createOrder(orderData);
+            const createResponse = await orderService.createOrder(orderData);
 
-            if (response.success) {
-                setPaymentStatus('completed');
-                setOrderCreated(true);
-                clearCart();
-                showToast('Order created successfully!', 'success');
+            if (createResponse.success) {
+                const orderId = createResponse.order._id;
                 
-                setTimeout(() => {
-                    onSuccess();
-                    onClose();
-                }, 2000);
+                const payResponse = await orderService.payOrder(orderId);
+                
+                if (payResponse.success) {
+                    setPaymentStatus('completed');
+                    setOrderCreated(true);
+                    clearCart();
+                    await refreshWallet();
+                    showToast('Payment processed successfully!', 'success');
+                    
+                    setTimeout(() => {
+                        onSuccess();
+                        onClose();
+                    }, 2000);
+                }
             }
         } catch (err) {
-            const errorMsg = err.response?.data?.message || 'Failed to create order. Please try again.';
-            setError(errorMsg);
-            showToast(errorMsg, 'error');
+            if (err.response?.status === 409 && err.response?.data?.code === 'PENDING_ORDER_EXISTS') {
+                const pendingId = err.response.data.pendingOrderId;
+                setPendingOrderId(pendingId);
+                setError('You have a pending order. Please complete or cancel it before creating a new one.');
+                showToast('Pending order exists. Complete it first.', 'warning');
+            } else {
+                const errorMsg = err.response?.data?.message || err.response?.data?.error || 'Failed to create order. Please try again.';
+                setError(errorMsg);
+                showToast(errorMsg, 'error');
+            }
         } finally {
             setLoading(false);
         }
@@ -137,6 +150,18 @@ const CheckoutModal = ({ isOpen, onClose, amount, onSuccess }) => {
                             <div>
                                 <h4 className="font-bold text-gray-900 text-sm mb-1">TRC-20 (TRON) NETWORK ONLY</h4>
                                 <p className="text-xs text-gray-600">Sending funds via any other network (like ERC-20, BEP-20) will result in <span className="font-semibold">permanent loss</span> of your assets.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                        <div className="flex gap-3">
+                            <svg className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                            <div>
+                                <h4 className="font-bold text-gray-900 text-sm mb-1">Transaction Confirmation Time</h4>
+                                <p className="text-xs text-gray-600">After payment, the blockchain confirmation may take up to <span className="font-semibold">5 minutes</span>. Please be patient while we verify your transaction.</p>
                             </div>
                         </div>
                     </div>
@@ -213,23 +238,67 @@ const CheckoutModal = ({ isOpen, onClose, amount, onSuccess }) => {
                     )}
 
                     {error && (
-                        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                            <p className="text-red-600 text-sm">{error}</p>
+                        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <div className="flex items-start gap-3">
+                                <svg className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                                <div className="flex-1">
+                                    <p className="text-yellow-800 text-sm font-semibold mb-2">{error}</p>
+                                    {pendingOrderId && (
+                                        <div className="flex gap-2 mt-3">
+                                            <button
+                                                onClick={() => {
+                                                    window.location.href = '/orders';
+                                                }}
+                                                className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-semibold rounded-lg transition-all"
+                                            >
+                                                View Pending Order
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        await orderService.cancelOrder(pendingOrderId);
+                                                        showToast('Pending order cancelled', 'success');
+                                                        setPendingOrderId(null);
+                                                        setError('');
+                                                    } catch (err) {
+                                                        showToast('Failed to cancel order', 'error');
+                                                    }
+                                                }}
+                                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-all"
+                                            >
+                                                Cancel Pending Order
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     )}
 
                     {paymentStatus === 'waiting' && (
                         <>
-                            <div className="mb-6">
-                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Transaction Hash</label>
-                                <input
-                                    type="text"
-                                    value={transactionHash}
-                                    onChange={(e) => setTransactionHash(e.target.value)}
-                                    placeholder="Enter transaction hash after sending"
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                                />
-                                <p className="text-xs text-gray-500 mt-2">You can find the hash in your wallet's transaction history</p>
+                            <div className="flex gap-3 mb-4">
+                                <button
+                                    onClick={() => {
+                                        clearCart();
+                                        showToast('Cart cleared', 'success');
+                                        onClose();
+                                    }}
+                                    className="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition-all"
+                                >
+                                    Clear Cart
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        showToast('Purchase cancelled', 'info');
+                                        onClose();
+                                    }}
+                                    className="flex-1 py-3 bg-red-100 hover:bg-red-200 text-red-700 font-semibold rounded-lg transition-all"
+                                >
+                                    Cancel Purchase
+                                </button>
                             </div>
 
                             <button
