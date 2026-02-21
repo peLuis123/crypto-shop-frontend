@@ -6,12 +6,13 @@ import CheckoutModal from '../components/CheckoutModal';
 import productService from '../api/productService';
 
 const Shop = () => {
-    const { cartItems, addToCart, cartItemCount, cartTotal } = useCart();
+    const { cartItems, addToCart, removeFromCart, cartItemCount, cartTotal } = useCart();
     const { showToast } = useToast();
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
     const [checkoutAmount, setCheckoutAmount] = useState(0);
+    const [buyNowProductId, setBuyNowProductId] = useState(null);
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -126,8 +127,22 @@ const Shop = () => {
     }, [selectedCategory]);
 
     const buyNow = (product) => {
+        addToCart(product);
+        setBuyNowProductId(product._id);
         setCheckoutAmount(product.price);
         setIsCheckoutOpen(true);
+    };
+
+    const handleCheckoutClose = () => {
+        if (buyNowProductId) {
+            removeFromCart(buyNowProductId);
+            setBuyNowProductId(null);
+        }
+        setIsCheckoutOpen(false);
+    };
+
+    const handleCheckoutSuccess = () => {
+        setBuyNowProductId(null);
     };
 
     const handleCartCheckout = () => {
@@ -135,6 +150,7 @@ const Shop = () => {
             showToast('Your cart is empty or has invalid amount', 'error');
             return;
         }
+        setBuyNowProductId(null);
         setCheckoutAmount(cartTotal);
         setIsCartOpen(false);
         setIsCheckoutOpen(true);
@@ -318,11 +334,9 @@ const Shop = () => {
 
             <CheckoutModal
                 isOpen={isCheckoutOpen}
-                onClose={() => setIsCheckoutOpen(false)}
+                onClose={handleCheckoutClose}
                 amount={checkoutAmount}
-                onSuccess={() => {
-                    setIsCheckoutOpen(false);
-                }}
+                onSuccess={handleCheckoutSuccess}
             />
         </div>
     );
