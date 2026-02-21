@@ -1,36 +1,33 @@
 import { useState, useEffect } from 'react';
-import axios from '../api/axios';
+import { useToast } from '../context/ToastContext';
+import api from '../api/axios';
+import walletService from '../api/walletService';
+import orderService from '../api/orderService';
+import { useCart } from '../context/CartContext';
 
 const CheckoutModal = ({ isOpen, onClose, amount, onSuccess }) => {
-    const [walletBalance, setWalletBalance] = useState(null);
+    const { walletAddress, walletBalance, refreshWallet, cartItems, clearCart } = useCart();
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [paymentStatus, setPaymentStatus] = useState('waiting');
     const [timeLeft, setTimeLeft] = useState(14 * 60);
-    const merchantAddress = 'TLR3qG5yjpGKzW9x1B2n4Rr6S7T8U9v';
+    const [merchantAddress, setMerchantAddress] = useState('');
+    const [transactionHash, setTransactionHash] = useState('');
+    const [error, setError] = useState('');
+    const [orderCreated, setOrderCreated] = useState(false);
+
     const exactAmount = amount;
 
     useEffect(() => {
         if (isOpen) {
-            fetchWalletBalance();
+            setMerchantAddress('TLR3qG5yjpGKzW9x1B2n4Rr6S7T8U9v');
+            refreshWallet();
             const timer = setInterval(() => {
                 setTimeLeft(prev => prev > 0 ? prev - 1 : 0);
             }, 1000);
             return () => clearInterval(timer);
         }
     }, [isOpen]);
-
-    const fetchWalletBalance = async () => {
-        try {
-            setLoading(true);
-            const userWallet = 'TXyBj...kK9zw4pXQv';
-            const response = await axios.get(`/wallet/balance/${userWallet}`);
-            setWalletBalance(response.data);
-        } catch (error) {
-            console.error('Error fetching wallet balance:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const formatTime = (seconds) => {
         const mins = Math.floor(seconds / 60);
@@ -42,9 +39,62 @@ const CheckoutModal = ({ isOpen, onClose, amount, onSuccess }) => {
         navigator.clipboard.writeText(text);
     };
 
+    const handleConfirmPayment = async () => {
+        if (!transactionHash.trim()) {
+            setError('Please enter the transaction hash');
+            return;
+        }
+
+        if (amount === 0) {
+            setError('Invalid amount. Cannot process payment.');
+            showToast('Cannot process payment with zero amount', 'error');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setError('');
+
+            const orderData = {
+                products: cartItems.map(item => ({
+                    productId: item._id,
+                    name: item.name,
+                    price: item.price,
+                    quantity: item.quantity,
+                    color: item.color
+                })),
+                total: amount,
+                paymentMethod: 'TRC-20',
+                transactionHash: transactionHash,
+                walletAddress: walletAddress,
+                merchantAddress: merchantAddress
+            };
+
+            const response = await orderService.createOrder(orderData);
+
+            if (response.success) {
+                setPaymentStatus('completed');
+                setOrderCreated(true);
+                clearCart();
+                showToast('Order created successfully!', 'success');
+                
+                setTimeout(() => {
+                    onSuccess();
+                    onClose();
+                }, 2000);
+            }
+        } catch (err) {
+            const errorMsg = err.response?.data?.message || 'Failed to create order. Please try again.';
+            setError(errorMsg);
+            showToast(errorMsg, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     if (!isOpen) return null;
 
-    const hasEnoughBalance = walletBalance && walletBalance.usdt >= amount;
+    const hasEnoughBalance = walletBalance && walletBalance >= amount;
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
@@ -93,9 +143,17 @@ const CheckoutModal = ({ isOpen, onClose, amount, onSuccess }) => {
 
                     <div className="bg-gray-50 rounded-xl p-6 mb-6">
                         <div className="bg-white rounded-lg p-4 mb-4 flex items-center justify-center">
-                            <div className="w-32 h-32 bg-gray-200 rounded-lg flex items-center justify-center">
-                                <span className="text-xs text-gray-400">QR CODE</span>
-                            </div>
+                            {merchantAddress ? (
+                                <img 
+                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(merchantAddress)}`}
+                                    alt="QR Code"
+                                    className="w-32 h-32"
+                                />
+                            ) : (
+                                <div className="w-32 h-32 bg-gray-200 rounded-lg flex items-center justify-center">
+                                    <span className="text-xs text-gray-400">Loading...</span>
+                                </div>
+                            )}
                         </div>
                         <p className="text-center text-xs text-gray-500 uppercase tracking-wider mb-3">Scan QR to Pay</p>
 
@@ -140,12 +198,12 @@ const CheckoutModal = ({ isOpen, onClose, amount, onSuccess }) => {
                         </div>
                     </div>
 
-                    {walletBalance && (
+                    {walletBalance !== null && (
                         <div className={`mb-6 p-4 rounded-lg border ${hasEnoughBalance ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
                             <div className="flex items-center justify-between">
                                 <span className="text-sm font-semibold text-gray-700">Your Wallet Balance:</span>
                                 <span className={`text-lg font-bold ${hasEnoughBalance ? 'text-emerald-600' : 'text-red-600'}`}>
-                                    {walletBalance.usdt.toFixed(2)} USDT
+                                    {walletBalance } USDT
                                 </span>
                             </div>
                             {!hasEnoughBalance && (
@@ -154,27 +212,55 @@ const CheckoutModal = ({ isOpen, onClose, amount, onSuccess }) => {
                         </div>
                     )}
 
-                    <div className="flex items-center justify-center gap-2 mb-6">
+                    {error && (
+                        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <p className="text-red-600 text-sm">{error}</p>
+                        </div>
+                    )}
+
+                    {paymentStatus === 'waiting' && (
+                        <>
+                            <div className="mb-6">
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Transaction Hash</label>
+                                <input
+                                    type="text"
+                                    value={transactionHash}
+                                    onChange={(e) => setTransactionHash(e.target.value)}
+                                    placeholder="Enter transaction hash after sending"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                />
+                                <p className="text-xs text-gray-500 mt-2">You can find the hash in your wallet's transaction history</p>
+                            </div>
+
+                            <button
+                                onClick={handleConfirmPayment}
+                                disabled={loading || !hasEnoughBalance || amount === 0}
+                                className={`w-full py-3 rounded-lg font-semibold transition-all ${
+                                    loading || !hasEnoughBalance || amount === 0
+                                        ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                                        : 'bg-emerald-500 text-white hover:bg-emerald-600'
+                                }`}
+                            >
+                                {loading ? 'Processing...' : 'Confirm Payment'}
+                            </button>
+                        </>
+                    )}
+
+                    {paymentStatus === 'completed' && (
+                        <div className="text-center">
+                            <div className="mb-4">
+                                <svg className="w-12 h-12 text-emerald-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                            </div>
+                            <p className="text-emerald-600 font-semibold">Payment received!</p>
+                            <p className="text-gray-500 text-sm mt-2">Your order has been created</p>
+                        </div>
+                    )}
+
+                    <div className="flex items-center justify-center gap-2 mt-6">
                         <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                        <span className="text-sm text-gray-600">Waiting for payment...</span>
-                    </div>
-
-                    <div className="flex items-center justify-center gap-6 text-xs text-gray-400 mb-4">
-                        <span className="flex items-center gap-1">
-                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            SSL ENCRYPTED
-                        </span>
-                    </div>
-
-                    <div className="flex gap-3 text-xs">
-                        <button className="flex-1 py-2 text-blue-500 hover:text-blue-600 font-semibold">
-                            SUPPORT CENTER
-                        </button>
-                        <button className="flex-1 py-2 text-blue-500 hover:text-blue-600 font-semibold">
-                            TRANSACTION DETAILS
-                        </button>
+                        <span className="text-sm text-gray-600">Secure transaction</span>
                     </div>
                 </div>
             </div>
