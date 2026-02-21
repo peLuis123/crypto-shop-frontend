@@ -26,12 +26,28 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        // No intentar refresh en estas rutas específicas
+        const skipRefreshUrls = [
+            'api/auth/login',
+            'api/auth/register',
+            'api/auth/logout',
+            'api/auth/refresh-token',
+            'api/auth/profile'
+        ];
+
+        const shouldSkipRefresh = skipRefreshUrls.some(url => 
+            originalRequest.url?.includes(url)
+        );
+
+        if (
+            error.response?.status === 401 && 
+            !originalRequest._retry && 
+            !shouldSkipRefresh
+        ) {
             originalRequest._retry = true;
 
             try {
                 await api.post('api/auth/refresh-token');
-
                 return api(originalRequest);
             } catch (refreshError) {
                 window.dispatchEvent(new Event('auth:logout'));

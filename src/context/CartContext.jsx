@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import walletService from '../api/walletService';
+import { useAuth } from './AuthContext';
 
 const CartContext = createContext();
 
@@ -12,16 +13,27 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
+    const { user, isAuthenticated } = useAuth();
     const [cartItems, setCartItems] = useState([]);
     const [walletBalance, setWalletBalance] = useState(null);
     const [walletAddress, setWalletAddress] = useState(null);
     const [walletLoading, setWalletLoading] = useState(false);
 
     useEffect(() => {
-        loadWalletInfo();
-    }, []);
+        // Solo cargar wallet info si hay usuario autenticado
+        if (isAuthenticated && user) {
+            loadWalletInfo();
+        } else {
+            // Limpiar datos del wallet si no hay usuario
+            setWalletBalance(null);
+            setWalletAddress(null);
+        }
+    }, [isAuthenticated, user]);
 
     const loadWalletInfo = async () => {
+        // Verificar que hay usuario antes de hacer la petición
+        if (!isAuthenticated) return;
+        
         try {
             setWalletLoading(true);
             const wallet = await walletService.getWalletInfo();
