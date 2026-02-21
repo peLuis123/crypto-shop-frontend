@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '../context/ToastContext';
+import { useSocket } from '../context/SocketContext';
+import { useCart } from '../context/CartContext';
 import orderService from '../api/orderService';
 
 const OrderHistory = () => {
     const { showToast } = useToast();
+    const { onTransactionConfirmed } = useSocket();
+    const { refreshWallet } = useCart();
     const [activeTab, setActiveTab] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [orders, setOrders] = useState([]);
@@ -53,6 +57,18 @@ const OrderHistory = () => {
     useEffect(() => {
         loadOrders();
     }, []);
+
+    // Suscribirse a confirmaciones de transacciones
+    useEffect(() => {
+        if (onTransactionConfirmed) {
+            const unsubscribe = onTransactionConfirmed(async (data) => {
+                await loadOrders();
+                await refreshWallet();
+            });
+
+            return () => unsubscribe();
+        }
+    }, [onTransactionConfirmed]);
 
     const filteredOrders = orders.filter(order => {
         if (activeTab !== 'all' && order.status !== activeTab) {

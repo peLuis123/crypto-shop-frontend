@@ -8,14 +8,16 @@ import AccountSettings from './pages/AccountSettings';
 import PaymentHistory from './pages/PaymentHistory';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { SocketProvider } from './context/SocketContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
     <Router>
       <AuthProvider>
-        <CartProvider>
-          <Routes>
+        <SocketProvider>
+          <CartProvider>
+            <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
@@ -37,6 +39,7 @@ function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </CartProvider>
+        </SocketProvider>
       </AuthProvider>
     </Router>
   );
