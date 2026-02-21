@@ -37,7 +37,7 @@ const Login = () => {
 
     return (
         <div className="min-h-screen bg-[#F3F4F6] flex flex-col justify-center items-center font-sans">
-            <div className="w-full max-w-[480px] p-6">
+            <div className="w-full max-w-120 p-6">
 
                 {/* Header Section */}
                 <div className="text-center mb-8">

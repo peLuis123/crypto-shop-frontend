@@ -40,7 +40,7 @@ const Toast = ({ type, message, onClose }) => {
     };
 
     return (
-        <div className={`${styles[type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-[300px] animate-slide-in`}>
+        <div className={`${styles[type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-75 animate-slide-in`}>
             {icons[type]}
             <span className="flex-1 font-medium">{message}</span>
             <button onClick={onClose} className="hover:opacity-80">

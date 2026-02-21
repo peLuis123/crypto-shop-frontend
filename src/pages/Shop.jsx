@@ -204,7 +204,7 @@ const Shop = () => {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                 {paginatedProducts.map((product) => (
                     <div key={product._id} className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-xl hover:scale-105 transition-all duration-300">
-                        <div className="aspect-square bg-gradient-to-br from-emerald-50 to-gray-50 flex items-center justify-center overflow-hidden">
+                        <div className="aspect-square bg-linear-to-br from-emerald-50 to-gray-50 flex items-center justify-center overflow-hidden">
                             {product.image ? (
                                 <img
                                     src={product.image}
