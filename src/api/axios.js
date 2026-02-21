@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const baseURL = import.meta.env.DEV ? '/' : 'http://localhost:3000/';
+
 const api = axios.create({
-    baseURL: 'http://localhost:3000',
+    baseURL: baseURL,
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
@@ -28,12 +30,10 @@ api.interceptors.response.use(
             originalRequest._retry = true;
 
             try {
-                console.log('Access Token expired. Attempting to refresh...');
-                await api.post('/api/auth/refresh-token');
+                await api.post('api/auth/refresh-token');
 
                 return api(originalRequest);
             } catch (refreshError) {
-                console.error('Session expired. Please log in again.', refreshError);
                 window.dispatchEvent(new Event('auth:logout'));
                 return Promise.reject(refreshError);
             }
