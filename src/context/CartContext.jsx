@@ -1,4 +1,5 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
+import walletService from '../api/walletService';
 
 const CartContext = createContext();
 
@@ -12,13 +13,32 @@ export const useCart = () => {
 
 export const CartProvider = ({ children }) => {
     const [cartItems, setCartItems] = useState([]);
+    const [walletBalance, setWalletBalance] = useState(null);
+    const [walletAddress, setWalletAddress] = useState(null);
+    const [walletLoading, setWalletLoading] = useState(false);
+
+    useEffect(() => {
+        loadWalletInfo();
+    }, []);
+
+    const loadWalletInfo = async () => {
+        try {
+            setWalletLoading(true);
+            const wallet = await walletService.getWalletInfo();
+            setWalletBalance(wallet.balance);
+            setWalletAddress(wallet.address);
+        } catch (error) {
+        } finally {
+            setWalletLoading(false);
+        }
+    };
 
     const addToCart = (product) => {
-        const existingItem = cartItems.find(item => item.id === product.id);
+        const existingItem = cartItems.find(item => item._id === product._id);
 
         if (existingItem) {
             setCartItems(cartItems.map(item =>
-                item.id === product.id
+                item._id === product._id
                     ? { ...item, quantity: item.quantity + 1 }
                     : item
             ));
@@ -28,12 +48,12 @@ export const CartProvider = ({ children }) => {
     };
 
     const removeFromCart = (productId) => {
-        setCartItems(cartItems.filter(item => item.id !== productId));
+        setCartItems(cartItems.filter(item => item._id !== productId));
     };
 
     const updateQuantity = (productId, delta) => {
         setCartItems(cartItems.map(item => {
-            if (item.id === productId) {
+            if (item._id === productId) {
                 const newQuantity = item.quantity + delta;
                 return newQuantity > 0 ? { ...item, quantity: newQuantity } : item;
             }
@@ -56,7 +76,12 @@ export const CartProvider = ({ children }) => {
             updateQuantity,
             clearCart,
             cartItemCount,
-            cartTotal
+            cartTotal,
+            walletBalance,
+            walletAddress,
+            walletLoading,
+            loadWalletInfo,
+            refreshWallet: loadWalletInfo
         }}>
             {children}
         </CartContext.Provider>

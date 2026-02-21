@@ -17,11 +17,10 @@ export const AuthProvider = ({ children }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    // Check user status upon page load
     useEffect(() => {
         const checkAuthStatus = async () => {
             try {
-                const response = await api.get('/api/auth/profile');
+                const response = await api.get('api/auth/profile');
                 if (response.data.user) {
                     setUser(response.data.user);
                     setIsAuthenticated(true);
@@ -30,10 +29,7 @@ export const AuthProvider = ({ children }) => {
                     setUser(null);
                 }
             } catch (error) {
-                // If checking auth/profile fails (perhaps 401 even after retry), assume not logged in.
-                // The interceptor might have already tried refreshing.
                 if (error.response?.status === 401) {
-                    // It's definitely not authenticated
                 }
                 setIsAuthenticated(false);
                 setUser(null);
@@ -44,7 +40,6 @@ export const AuthProvider = ({ children }) => {
 
         checkAuthStatus();
 
-        // Listen for custom logout event dispatched by interceptor
         const handleLogoutEvent = () => {
             logout();
         };
@@ -58,19 +53,18 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (email, password) => {
         try {
-            const response = await api.post('/api/auth/login', { email, password });
+            const response = await api.post('api/auth/login', { email, password });
             setUser(response.data.user);
             setIsAuthenticated(true);
             return response.data;
         } catch (error) {
-            // Re-throw so component can handle UI errors
             throw error;
         }
     };
 
     const register = async (userData) => {
         try {
-            const response = await api.post('/api/auth/register', userData);
+            const response = await api.post('api/auth/register', userData);
             setUser(response.data.user);
             setIsAuthenticated(true);
             return response.data;
@@ -81,9 +75,8 @@ export const AuthProvider = ({ children }) => {
 
     const logout = async () => {
         try {
-            await api.post('/api/auth/logout');
+            await api.post('api/auth/logout');
         } catch (error) {
-            console.error('Logout error', error);
         } finally {
             setUser(null);
             setIsAuthenticated(false);
