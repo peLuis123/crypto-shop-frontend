@@ -1,54 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useToast } from '../context/ToastContext';
+import orderService from '../api/orderService';
 
 const OrderHistory = () => {
+    const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
-
-    const stats = [
-        { label: 'Total Orders', value: '128', color: 'text-gray-900' },
-        { label: 'Pending Payment', value: '2', color: 'text-orange-500' },
+    const [orders, setOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [stats, setStats] = useState([
+        { label: 'Total Orders', value: '0', color: 'text-gray-900' },
+        { label: 'Pending Payment', value: '0', color: 'text-orange-500' },
         { label: 'TRC-20 Confirmations', value: 'Active', color: 'text-emerald-500' },
         { label: 'Account Health', value: '99%', color: 'text-gray-900' }
-    ];
-
-    const orders = [
-        {
-            id: '#TRX-94820',
-            date: 'Oct 22, 2023 • 14:20 PM',
-            products: [{ image: '🎧', count: 2 }],
-            amount: '450.00',
-            network: 'TRC-20',
-            status: 'completed',
-            statusColor: 'emerald'
-        },
-        {
-            id: '#TRX-94819',
-            date: 'Oct 21, 2023 • 09:45 AM',
-            products: [{ image: '👟', count: 1 }],
-            amount: '125.50',
-            network: 'TRC-20',
-            status: 'pending',
-            statusColor: 'orange'
-        },
-        {
-            id: '#TRX-94815',
-            date: 'Oct 21, 2023 • 11:12 AM',
-            products: [{ image: '🎮', count: 1 }],
-            amount: '2,100.00',
-            network: 'TRC-20',
-            status: 'failed',
-            statusColor: 'red'
-        },
-        {
-            id: '#TRX-94812',
-            date: 'Oct 18, 2023 • 16:05 PM',
-            products: [{ image: '🎧', count: 1 }],
-            amount: '88.20',
-            network: 'TRC-20',
-            status: 'completed',
-            statusColor: 'emerald'
-        }
-    ];
+    ]);
 
     const tabs = [
         { id: 'all', label: 'All Transactions' },
@@ -57,11 +23,66 @@ const OrderHistory = () => {
         { id: 'cancelled', label: 'Cancelled' }
     ];
 
+    const loadOrders = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const response = await orderService.getUserOrders();
+            const ordersData = response.orders || response;
+            setOrders(ordersData);
+
+            const totalOrders = ordersData.length;
+            const pendingOrders = ordersData.filter(o => o.status === 'pending').length;
+
+            setStats([
+                { label: 'Total Orders', value: totalOrders.toString(), color: 'text-gray-900' },
+                { label: 'Pending Payment', value: pendingOrders.toString(), color: 'text-orange-500' },
+                { label: 'TRC-20 Confirmations', value: 'Active', color: 'text-emerald-500' },
+                { label: 'Account Health', value: '99%', color: 'text-gray-900' }
+            ]);
+        } catch (err) {
+            showToast('Failed to load orders. Please try again.', 'error');
+            setError('Failed to load orders. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadOrders();
+    }, []);
+
+    const filteredOrders = orders.filter(order => {
+        if (activeTab !== 'all' && order.status !== activeTab) {
+            return false;
+        }
+        if (searchQuery && !order.orderId.includes(searchQuery)) {
+            return false;
+        }
+        return true;
+    });
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'completed':
+                return 'emerald';
+            case 'pending':
+                return 'orange';
+            case 'failed':
+                return 'red';
+            case 'cancelled':
+                return 'red';
+            default:
+                return 'gray';
+        }
+    };
+
     const getStatusBadge = (status, color) => {
         const colors = {
             emerald: 'bg-emerald-100 text-emerald-600',
             orange: 'bg-orange-100 text-orange-600',
-            red: 'bg-red-100 text-red-600'
+            red: 'bg-red-100 text-red-600',
+            gray: 'bg-gray-100 text-gray-600'
         };
 
         return (
@@ -69,6 +90,17 @@ const OrderHistory = () => {
                 ● {status.charAt(0).toUpperCase() + status.slice(1)}
             </span>
         );
+    };
+
+    const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     };
 
     return (
@@ -124,76 +156,109 @@ const OrderHistory = () => {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-gray-50 border-b border-gray-100">
-                            <tr>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Order Details</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Products</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Network</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {orders.map((order) => (
-                                <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div>
-                                            <p className="font-bold text-gray-900">{order.id}</p>
-                                            <p className="text-xs text-gray-500">{order.date}</p>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            {order.products.map((product, idx) => (
-                                                <div key={idx} className="flex items-center">
-                                                    <span className="text-2xl">{product.image}</span>
-                                                    {product.count > 1 && (
-                                                        <span className="text-xs text-gray-500 ml-1">+{product.count - 1}</span>
+                {loading ? (
+                    <div className="p-8 text-center">
+                        <div className="inline-block animate-spin mb-4">
+                            <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </div>
+                        <p className="text-gray-500">Loading orders...</p>
+                    </div>
+                ) : error ? (
+                    <div className="p-8 text-center">
+                        <p className="text-red-600">{error}</p>
+                        <button
+                            onClick={loadOrders}
+                            className="mt-4 px-4 py-2 bg-emerald-400 text-white rounded-lg hover:bg-emerald-500 transition-all"
+                        >
+                            Try Again
+                        </button>
+                    </div>
+                ) : filteredOrders.length === 0 ? (
+                    <div className="p-8 text-center">
+                        <p className="text-gray-500">No orders found.</p>
+                    </div>
+                ) : (
+                    <>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50 border-b border-gray-100">
+                                    <tr>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Order Details</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Products</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Network</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {filteredOrders.map((order) => (
+                                        <tr key={order._id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div>
+                                                    <p className="font-bold text-gray-900">{order.orderId}</p>
+                                                    <p className="text-xs text-gray-500">{formatDate(order.createdAt)}</p>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-2">
+                                                    {order.products.slice(0, 2).map((product, idx) => (
+                                                        <div key={idx} className="flex items-center">
+                                                            <span className="text-2xl">📦</span>
+                                                            {product.quantity > 1 && (
+                                                                <span className="text-xs text-gray-500 ml-1">x{product.quantity}</span>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                    {order.products.length > 2 && (
+                                                        <span className="text-xs text-gray-500">+{order.products.length - 2} more</span>
                                                     )}
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div>
-                                            <p className="font-bold text-gray-900">{order.amount} USDT</p>
-                                            <p className="text-xs text-gray-400">${order.amount} USD</p>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-600 rounded text-xs font-semibold">
-                                            T {order.network}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {getStatusBadge(order.status, order.statusColor)}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <button className="text-gray-600 hover:text-emerald-500 font-semibold text-sm flex items-center gap-1">
-                                            Details
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                            </svg>
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div>
+                                                    <p className="font-bold text-gray-900">{order.total.toFixed(2)} USDT</p>
+                                                    <p className="text-xs text-gray-400">${order.total.toFixed(2)} USD</p>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-600 rounded text-xs font-semibold">
+                                                    T {order.paymentMethod || 'TRC-20'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {getStatusBadge(order.status, getStatusColor(order.status))}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <button className="text-gray-600 hover:text-emerald-500 font-semibold text-sm flex items-center gap-1">
+                                                    Details
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                    </svg>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
 
-                <div className="p-6 border-t border-gray-100 flex items-center justify-between">
-                    <p className="text-sm text-gray-600">Showing <span className="font-semibold">1 - 10</span> of <span className="font-semibold">128</span> orders</p>
-                    <div className="flex items-center gap-2">
-                        <button className="w-10 h-10 bg-emerald-400 text-white font-semibold rounded-lg hover:bg-emerald-500 transition-all">1</button>
-                        <button className="w-10 h-10 border border-gray-200 text-gray-600 font-semibold rounded-lg hover:bg-gray-50 transition-all">2</button>
-                        <button className="w-10 h-10 border border-gray-200 text-gray-600 font-semibold rounded-lg hover:bg-gray-50 transition-all">3</button>
-                        <button className="w-10 h-10 border border-gray-200 text-gray-600 font-semibold rounded-lg hover:bg-gray-50 transition-all">›</button>
-                    </div>
-                </div>
+                        <div className="p-6 border-t border-gray-100 flex items-center justify-between">
+                            <p className="text-sm text-gray-600">Showing <span className="font-semibold">1 - {filteredOrders.length}</span> of <span className="font-semibold">{orders.length}</span> orders</p>
+                            <div className="flex items-center gap-2">
+                                <button className="w-10 h-10 bg-emerald-400 text-white font-semibold rounded-lg hover:bg-emerald-500 transition-all">1</button>
+                                {orders.length > 10 && (
+                                    <>
+                                        <button className="w-10 h-10 border border-gray-200 text-gray-600 font-semibold rounded-lg hover:bg-gray-50 transition-all">2</button>
+                                        <button className="w-10 h-10 border border-gray-200 text-gray-600 font-semibold rounded-lg hover:bg-gray-50 transition-all">›</button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </>
+                )}
             </div>
 
             <div className="mt-6 bg-gray-900 rounded-2xl p-8 flex items-center justify-between">
