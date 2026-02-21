@@ -14,7 +14,7 @@ const DashboardLayout = () => {
 
     return (
         <div className="min-h-screen bg-[#F3F4F6] flex">
-            <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+            <aside className="w-64 bg-white border-r border-gray-200 flex flex-col fixed h-screen overflow-y-auto">
                 <div className="p-6 border-b border-gray-100">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-emerald-400 rounded-xl flex items-center justify-center">
@@ -117,7 +117,7 @@ const DashboardLayout = () => {
                 </div>
             </aside>
 
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col ml-64">
                 <header className="bg-white border-b border-gray-200 px-8 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex-1 max-w-xl">
