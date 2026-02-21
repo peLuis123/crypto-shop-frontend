@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 const Login = () => {
     const { login } = useAuth();
+    const { showToast } = useToast();
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
         email: '',
@@ -22,9 +24,12 @@ const Login = () => {
         setLoading(true);
         try {
             await login(formData.email, formData.password);
+            showToast('Login successful! Welcome back.', 'success');
             navigate('/dashboard');
         } catch (err) {
-            setError(err.response?.data?.message || 'Invalid credentials');
+            const errorMsg = err.response?.data?.message || 'Invalid credentials';
+            setError(errorMsg);
+            showToast(errorMsg, 'error');
         } finally {
             setLoading(false);
         }

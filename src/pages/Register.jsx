@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 const Register = () => {
     const { register } = useAuth();
+    const { showToast } = useToast();
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
         username: '',
@@ -28,9 +30,12 @@ const Register = () => {
         setLoading(true);
         try {
             await register(formData);
+            showToast('Account created successfully! Welcome.', 'success');
             navigate('/dashboard');
         } catch (err) {
-            setError(err.response?.data?.message || 'Registration failed');
+            const errorMsg = err.response?.data?.message || 'Registration failed';
+            setError(errorMsg);
+            showToast(errorMsg, 'error');
         } finally {
             setLoading(false);
         }
