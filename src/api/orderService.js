@@ -44,6 +44,15 @@ export const orderService = {
         } catch (error) {
             throw error;
         }
+    },
+
+    payOrder: async (orderId) => {
+        try {
+            const response = await api.post(`api/orders/${orderId}/pay`);
+            return response.data;
+        } catch (error) {
+            throw error;
+        }
     }
 };
 
