@@ -12,7 +12,7 @@ const Dashboard = () => {
 
     return (
         <div className="flex-1 flex flex-col justify-center items-center text-white bg-brand-dark h-full animate-fade-in">
-            <h1 className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-primary to-brand-secondary mb-4">
+            <h1 className="text-5xl font-bold bg-clip-text text-transparent bg-linear-to-r from-brand-primary to-brand-secondary mb-4">
                 Dashboard
             </h1>
 
