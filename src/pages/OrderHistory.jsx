@@ -15,17 +15,17 @@ const OrderHistory = () => {
     const [error, setError] = useState(null);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [stats, setStats] = useState([
-        { label: 'Total Orders', value: '0', color: 'text-gray-900' },
-        { label: 'Pending Payment', value: '0', color: 'text-orange-500' },
-        { label: 'TRC-20 Confirmations', value: 'Active', color: 'text-emerald-500' },
-        { label: 'Account Health', value: '99%', color: 'text-gray-900' }
-    ]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
+    const [statusStats, setStatusStats] = useState({ total: 0, completed: 0, pending: 0, refunded: 0 });
+    const [totalSpentValue, setTotalSpentValue] = useState(0);
+    const itemsPerPage = 10;
 
     const tabs = [
         { id: 'all', label: 'All Transactions' },
         { id: 'completed', label: 'Completed' },
         { id: 'pending', label: 'Pending' },
+        { id: 'refunded', label: 'Refunded' },
         { id: 'cancelled', label: 'Cancelled' }
     ];
 
@@ -33,19 +33,46 @@ const OrderHistory = () => {
         try {
             setLoading(true);
             setError(null);
-            const response = await orderService.getUserOrders();
+            const statusParam = activeTab !== 'all' ? activeTab : undefined;
+            const response = await orderService.getUserOrders({
+                page: currentPage,
+                limit: itemsPerPage,
+                status: statusParam
+            });
             const ordersData = response.orders || response;
+            const paginationData = response.pagination || { total: ordersData.length, page: 1, pages: 1 };
             setOrders(ordersData);
+            setPagination(paginationData);
+            setStatusStats(response.stats || {
+                total: paginationData.total,
+                completed: 0,
+                pending: 0,
+                refunded: 0
+            });
 
-            const totalOrders = ordersData.length;
-            const pendingOrders = ordersData.filter(o => o.status === 'pending').length;
+            if (activeTab === 'all') {
+                let sourceOrders = ordersData;
+                if ((paginationData.total || 0) > ordersData.length) {
+                    const allOrdersResponse = await orderService.getUserOrders({ page: 1, limit: paginationData.total });
+                    sourceOrders = allOrdersResponse.orders || [];
+                }
 
-            setStats([
-                { label: 'Total Orders', value: totalOrders.toString(), color: 'text-gray-900' },
-                { label: 'Pending Payment', value: pendingOrders.toString(), color: 'text-orange-500' },
-                { label: 'TRC-20 Confirmations', value: 'Active', color: 'text-emerald-500' },
-                { label: 'Account Health', value: '99%', color: 'text-gray-900' }
-            ]);
+                const completedAmount = sourceOrders
+                    .filter(order => order.status === 'completed')
+                    .reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
+                const refundedAmount = sourceOrders
+                    .filter(order => order.status === 'refunded')
+                    .reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
+                setTotalSpentValue(completedAmount - refundedAmount);
+            } else {
+                const completedAmount = ordersData
+                    .filter(order => order.status === 'completed')
+                    .reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
+                const refundedAmount = ordersData
+                    .filter(order => order.status === 'refunded')
+                    .reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
+                setTotalSpentValue(completedAmount - refundedAmount);
+            }
         } catch (err) {
             showToast('Failed to load orders. Please try again.', 'error');
             setError('Failed to load orders. Please try again.');
@@ -56,7 +83,7 @@ const OrderHistory = () => {
 
     useEffect(() => {
         loadOrders();
-    }, []);
+    }, [activeTab, currentPage]);
 
     // Suscribirse a confirmaciones de transacciones
     useEffect(() => {
@@ -70,15 +97,45 @@ const OrderHistory = () => {
         }
     }, [onTransactionConfirmed]);
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab]);
+
     const filteredOrders = orders.filter(order => {
-        if (activeTab !== 'all' && order.status !== activeTab) {
-            return false;
-        }
-        if (searchQuery && !order.orderId.includes(searchQuery)) {
+        const searchValue = searchQuery.toLowerCase();
+        if (searchQuery && !(order.orderId || '').toLowerCase().includes(searchValue) && !(order.transactionHash || '').toLowerCase().includes(searchValue)) {
             return false;
         }
         return true;
     });
+
+    const totalOrdersCount = statusStats.total || pagination?.total || orders.length;
+    const completedOrdersCount = statusStats.completed || 0;
+    const pendingOrdersCount = statusStats.pending || 0;
+    const refundedOrdersCount = statusStats.refunded || 0;
+
+    const totalPages = pagination?.pages || 1;
+    const currentApiPage = pagination?.page || currentPage;
+    const pageStartIndex = pagination?.total === 0 ? 0 : ((currentApiPage - 1) * itemsPerPage) + 1;
+    const pageEndIndex = pagination?.total === 0 ? 0 : Math.min((currentApiPage - 1) * itemsPerPage + filteredOrders.length, pagination?.total || 0);
+
+    const getVisiblePages = () => {
+        if (totalPages <= 5) {
+            return Array.from({ length: totalPages }, (_, i) => i + 1);
+        }
+
+        if (currentPage <= 3) {
+            return [1, 2, 3, 4, 5];
+        }
+
+        if (currentPage >= totalPages - 2) {
+            return [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+        }
+
+        return [currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2];
+    };
+
+    const visiblePages = getVisiblePages();
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -86,6 +143,8 @@ const OrderHistory = () => {
                 return 'emerald';
             case 'pending':
                 return 'orange';
+            case 'refunded':
+                return 'blue';
             case 'failed':
                 return 'red';
             case 'cancelled':
@@ -99,6 +158,7 @@ const OrderHistory = () => {
         const colors = {
             emerald: 'bg-emerald-100 text-emerald-600',
             orange: 'bg-orange-100 text-orange-600',
+            blue: 'bg-blue-100 text-blue-600',
             red: 'bg-red-100 text-red-600',
             gray: 'bg-gray-100 text-gray-600'
         };
@@ -131,20 +191,39 @@ const OrderHistory = () => {
         setSelectedOrder(null);
     };
 
+    const truncateHash = (hash = '') => {
+        if (!hash) return '-';
+        return `${hash.substring(0, 10)}...${hash.substring(hash.length - 6)}`;
+    };
+
     return (
         <div className="p-8">
             <div className="mb-6">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">My Orders</h1>
-                <p className="text-gray-500">Manage and track your TRC-20 transactions.</p>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Orders & Payments</h1>
+                <p className="text-gray-500">Track purchases, payment status, and TRC-20 transaction history in one place.</p>
             </div>
 
             <div className="grid grid-cols-4 gap-4 mb-6">
-                {stats.map((stat, index) => (
-                    <div key={index} className="bg-white rounded-xl border border-gray-100 p-6">
-                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">{stat.label}</p>
-                        <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
+                <div className="bg-white rounded-xl border border-gray-100 p-6">
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Total Orders</p>
+                    <p className="text-3xl font-bold text-gray-900">{totalOrdersCount}</p>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-100 p-6">
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Total Spent (TRX)</p>
+                    <p className="text-3xl font-bold text-gray-900">{totalSpentValue.toFixed(2)}</p>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-100 p-6">
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Order Types</p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-600">Completed {completedOrdersCount}</span>
+                        <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-orange-100 text-orange-600">Pending {pendingOrdersCount}</span>
+                        <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-600">Refunded {refundedOrdersCount}</span>
                     </div>
-                ))}
+                </div>
+                <div className="bg-white rounded-xl border border-gray-100 p-6">
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">TRC-20 Confirmations</p>
+                    <p className="text-3xl font-bold text-emerald-500">Active</p>
+                </div>
             </div>
 
             <div className="bg-white rounded-xl border border-gray-100">
@@ -217,6 +296,7 @@ const OrderHistory = () => {
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Products</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Network</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tx Hash</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
@@ -247,14 +327,28 @@ const OrderHistory = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div>
-                                                    <p className="font-bold text-gray-900">{order.total.toFixed(2)} USDT</p>
-                                                    <p className="text-xs text-gray-400">${order.total.toFixed(2)} USD</p>
+                                                    <p className="font-bold text-gray-900">{(parseFloat(order.total) || 0).toFixed(2)} TRX</p>
+                                                    <p className="text-xs text-gray-400">${(parseFloat(order.total) || 0).toFixed(2)} USD</p>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-600 rounded text-xs font-semibold">
                                                     T {order.paymentMethod || 'TRC-20'}
                                                 </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {order.transactionHash ? (
+                                                    <a
+                                                        href={`https://nile.tronscan.org//#/transaction/${order.transactionHash}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs font-mono text-blue-600 hover:underline"
+                                                    >
+                                                        {truncateHash(order.transactionHash)}
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400">-</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4">
                                                 {getStatusBadge(order.status, getStatusColor(order.status))}
@@ -277,31 +371,41 @@ const OrderHistory = () => {
                         </div>
 
                         <div className="p-6 border-t border-gray-100 flex items-center justify-between">
-                            <p className="text-sm text-gray-600">Showing <span className="font-semibold">1 - {filteredOrders.length}</span> of <span className="font-semibold">{orders.length}</span> orders</p>
+                            <p className="text-sm text-gray-600">Showing <span className="font-semibold">{pageStartIndex} - {pageEndIndex}</span> of <span className="font-semibold">{pagination?.total || 0}</span> orders</p>
                             <div className="flex items-center gap-2">
-                                <button className="w-10 h-10 bg-emerald-400 text-white font-semibold rounded-lg hover:bg-emerald-500 transition-all">1</button>
-                                {orders.length > 10 && (
-                                    <>
-                                        <button className="w-10 h-10 border border-gray-200 text-gray-600 font-semibold rounded-lg hover:bg-gray-50 transition-all">2</button>
-                                        <button className="w-10 h-10 border border-gray-200 text-gray-600 font-semibold rounded-lg hover:bg-gray-50 transition-all">›</button>
-                                    </>
-                                )}
+                                <button
+                                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                                    disabled={currentApiPage === 1}
+                                    className="w-10 h-10 border border-gray-200 text-gray-600 font-semibold rounded-lg hover:bg-gray-50 transition-all disabled:opacity-40"
+                                >
+                                    ‹
+                                </button>
+                                {visiblePages.map((pageNumber) => (
+                                    <button
+                                        key={pageNumber}
+                                        onClick={() => setCurrentPage(pageNumber)}
+                                        className={`w-10 h-10 font-semibold rounded-lg transition-all ${
+                                            currentApiPage === pageNumber
+                                                ? 'bg-emerald-400 text-white hover:bg-emerald-500'
+                                                : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        {pageNumber}
+                                    </button>
+                                ))}
+                                <button
+                                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                                    disabled={currentApiPage === totalPages}
+                                    className="w-10 h-10 border border-gray-200 text-gray-600 font-semibold rounded-lg hover:bg-gray-50 transition-all disabled:opacity-40"
+                                >
+                                    ›
+                                </button>
                             </div>
                         </div>
                     </>
                 )}
             </div>
-
-            <div className="mt-6 bg-gray-900 rounded-2xl p-8 flex items-center justify-between">
-                <div>
-                    <h3 className="text-xl font-bold text-white mb-2">Secure USDT Payments</h3>
-                    <p className="text-gray-400 text-sm">Our platform uses the TRON Network (TRC-20) for lightning-fast transactions and minimal fees. Need help with a transaction?</p>
-                </div>
-                <button className="px-6 py-3 bg-emerald-400 hover:bg-emerald-500 text-white font-bold rounded-lg transition-all">
-                    Contact Support
-                </button>
-            </div>
-
+ 
             {/* Order Details Modal */}
             {isModalOpen && selectedOrder && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={closeModal}>
@@ -330,7 +434,7 @@ const OrderHistory = () => {
                                 <div className="grid grid-cols-2 gap-4 mb-4">
                                     <div className="bg-gray-50 rounded-lg p-4">
                                         <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Amount</p>
-                                        <p className="text-2xl font-bold text-gray-900">{selectedOrder.total.toFixed(2)} USDT</p>
+                                        <p className="text-2xl font-bold text-gray-900">{selectedOrder.total.toFixed(2)} TRX</p>
                                         <p className="text-xs text-gray-400">${selectedOrder.total.toFixed(2)} USD</p>
                                     </div>
                                     <div className="bg-gray-50 rounded-lg p-4">
@@ -343,7 +447,14 @@ const OrderHistory = () => {
                                 {selectedOrder.transactionHash && (
                                     <div className="bg-gray-50 rounded-lg p-4 mb-4">
                                         <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Transaction Hash</p>
-                                        <p className="text-xs font-mono text-gray-900 break-all">{selectedOrder.transactionHash}</p>
+                                        <a
+                                            href={`https://nile.tronscan.org//#/transaction/${selectedOrder.transactionHash}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs font-mono text-blue-600 break-all hover:underline"
+                                        >
+                                            {selectedOrder.transactionHash}
+                                        </a>
                                     </div>
                                 )}
 
@@ -377,7 +488,7 @@ const OrderHistory = () => {
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="font-bold text-gray-900">{product.price.toFixed(2)} USDT</p>
+                                                <p className="font-bold text-gray-900">{product.price.toFixed(2)} TRX</p>
                                                 <p className="text-xs text-gray-500">x{product.quantity}</p>
                                             </div>
                                         </div>
@@ -387,7 +498,7 @@ const OrderHistory = () => {
                                 <div className="mt-4 pt-4 border-t border-gray-200">
                                     <div className="flex items-center justify-between">
                                         <span className="font-bold text-gray-900">Total</span>
-                                        <span className="text-2xl font-bold text-emerald-500">{selectedOrder.total.toFixed(2)} USDT</span>
+                                        <span className="text-2xl font-bold text-emerald-500">{selectedOrder.total.toFixed(2)} TRX</span>
                                     </div>
                                 </div>
                             </div>

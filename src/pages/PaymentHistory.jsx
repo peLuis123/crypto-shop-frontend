@@ -88,7 +88,7 @@ const PaymentHistory = () => {
         <div className="p-8">
             <div className="mb-6">
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment History</h1>
-                <p className="text-gray-500">View all your USDT transactions on the TRON network.</p>
+                <p className="text-gray-500">View all your TRX transactions on the TRON network.</p>
             </div>
 
             <div className="bg-white rounded-xl border border-gray-100 p-6 mb-6">
@@ -103,7 +103,7 @@ const PaymentHistory = () => {
                             {transactions
                                 .filter(t => t.type === 'purchase')
                                 .reduce((sum, t) => sum + t.amount, 0)
-                                .toFixed(2)} USDT
+                                .toFixed(2)} TRX
                         </p>
                     </div>
                     <div className="p-4 bg-amber-50 rounded-lg">
@@ -178,7 +178,7 @@ const PaymentHistory = () => {
                                             <p className="text-sm text-gray-900">{formatDate(transaction.createdAt)}</p>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <p className="text-sm font-semibold text-gray-900">{transaction.amount.toFixed(2)} {transaction.currency || 'USDT'}</p>
+                                            <p className="text-sm font-semibold text-gray-900">{transaction.amount.toFixed(2)} {transaction.currency || 'TRX'}</p>
                                         </td>
                                         <td className="px-6 py-4">
                                             <p className="text-xs font-mono text-gray-500 truncate max-w-xs">
