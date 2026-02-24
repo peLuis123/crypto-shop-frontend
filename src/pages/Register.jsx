@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
 const Register = () => {
-    const { register } = useAuth();
+    const { register, user, isAuthenticated } = useAuth();
     const { showToast } = useToast();
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
@@ -15,6 +15,18 @@ const Register = () => {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    // Redirigir automáticamente si ya está autenticado
+    useEffect(() => {
+        if (isAuthenticated && user) {
+            const userRole = user.role || 'user';
+            if (userRole === 'admin') {
+                navigate('/admin');
+            } else {
+                navigate('/dashboard');
+            }
+        }
+    }, [isAuthenticated, user, navigate]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -31,7 +43,7 @@ const Register = () => {
         try {
             await register(formData);
             showToast('Account created successfully! Welcome.', 'success');
-            navigate('/dashboard');
+            // La redirección se maneja automáticamente por el useEffect
         } catch (err) {
             const errorMsg = err.response?.data?.message || 'Registration failed';
             setError(errorMsg);
@@ -54,7 +66,7 @@ const Register = () => {
                         </svg>
                     </div>
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">Create Your Account</h1>
-                    <p className="text-gray-500 text-sm">Join the future of e-commerce with USDT payments</p>
+                    <p className="text-gray-500 text-sm">Join the future of e-commerce with TRX payments</p>
                 </div>
 
                 {/* Card */}
@@ -180,7 +192,7 @@ const Register = () => {
                         <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                         </svg>
-                        USDT Ready
+                        TRX Ready
                     </span>
                 </div>
             </div>
