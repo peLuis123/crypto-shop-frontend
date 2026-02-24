@@ -70,7 +70,7 @@ const CartModal = ({ isOpen, onClose, cartItems, onCheckout }) => {
                                     <button onClick={() => updateQuantity(item._id, 1)} className="w-8 h-8 border border-gray-300 rounded-lg hover:bg-gray-100">+</button>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-lg font-bold text-gray-900">{item.price.toFixed(2)} USDT</p>
+                                    <p className="text-lg font-bold text-gray-900">{item.price.toFixed(2)} TRX</p>
                                     <p className="text-xs text-gray-400">TRC-20 Network</p>
                                 </div>
                             </div>
@@ -90,7 +90,7 @@ const CartModal = ({ isOpen, onClose, cartItems, onCheckout }) => {
                         <div className="border-t border-gray-200 pt-4 mb-6">
                             <div className="flex justify-between items-center mb-2">
                                 <span className="font-bold text-gray-900">Total Amount</span>
-                                <span className="text-2xl font-bold text-emerald-500">{total.toFixed(2)} USDT</span>
+                                <span className="text-2xl font-bold text-emerald-500">{total.toFixed(2)} TRX</span>
                             </div>
                             <p className="text-xs text-gray-500 flex items-center gap-1">
                                 <svg className="w-3 h-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
