@@ -33,6 +33,7 @@ const Shop = () => {
             name: 'Wireless Headphones Pro',
             category: 'electronics',
             price: 145.00,
+            stock: 12,
             rating: 4.8,
             reviews: 234,
             image: '🎧',
@@ -43,6 +44,7 @@ const Shop = () => {
             name: 'Smart Watch Series 5',
             category: 'electronics',
             price: 299.50,
+            stock: 8,
             rating: 4.9,
             reviews: 512,
             image: '⌚',
@@ -53,6 +55,7 @@ const Shop = () => {
             name: 'Running Shoes Elite',
             category: 'sports',
             price: 125.00,
+            stock: 0,
             rating: 4.7,
             reviews: 189,
             image: '👟',
@@ -63,6 +66,7 @@ const Shop = () => {
             name: 'Gaming Console X',
             category: 'electronics',
             price: 499.99,
+            stock: 5,
             rating: 5.0,
             reviews: 1024,
             image: '🎮',
@@ -73,6 +77,7 @@ const Shop = () => {
             name: 'Designer Backpack',
             category: 'fashion',
             price: 89.99,
+            stock: 16,
             rating: 4.6,
             reviews: 156,
             image: '🎒',
@@ -83,6 +88,7 @@ const Shop = () => {
             name: 'Coffee Maker Deluxe',
             category: 'home',
             price: 179.00,
+            stock: 3,
             rating: 4.8,
             reviews: 342,
             image: '☕',
@@ -121,6 +127,8 @@ const Shop = () => {
     const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+    const pageStart = filteredProducts.length === 0 ? 0 : startIndex + 1;
+    const pageEnd = Math.min(startIndex + itemsPerPage, filteredProducts.length);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -217,8 +225,21 @@ const Shop = () => {
                 </div>
             )}
 
+            {!loading && (
+                <div className="mb-4 flex items-center justify-between text-sm text-gray-600">
+                    <p>
+                        Showing <span className="font-semibold text-gray-900">{pageStart} - {pageEnd}</span> of <span className="font-semibold text-gray-900">{filteredProducts.length}</span> products
+                    </p>
+                    <p className="text-xs text-gray-500">{itemsPerPage} per page</p>
+                </div>
+            )}
+
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                {paginatedProducts.map((product) => (
+                {paginatedProducts.map((product) => {
+                    const stock = Number.isFinite(parseInt(product.stock)) ? parseInt(product.stock) : null;
+                    const isOutOfStock = stock === 0;
+
+                    return (
                     <div key={product._id} className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-xl hover:scale-105 transition-all duration-300">
                         <div className="aspect-square bg-linear-to-br from-emerald-50 to-gray-50 flex items-center justify-center overflow-hidden">
                             {product.image ? (
@@ -238,10 +259,13 @@ const Shop = () => {
                             </p>
                             <h3 className="font-bold text-gray-900 mb-1 text-sm">{product.name}</h3>
                             <p className="text-[10px] text-gray-500 mb-2">Color: {product.color || 'Standard'}</p>
+                            <p className={`text-[10px] font-semibold mb-2 ${isOutOfStock ? 'text-red-500' : 'text-emerald-600'}`}>
+                                {stock === null ? 'Stock: N/A' : `Stock: ${stock}`}
+                            </p>
 
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-lg font-bold text-gray-900">
-                                    {product.price.toFixed(2)} <span className="text-xs text-emerald-600">USDT</span>
+                                    {product.price.toFixed(2)} <span className="text-xs text-emerald-600">TRX</span>
                                 </span>
                                 <div className="flex items-center gap-0.5">
                                     <svg className="w-3 h-3 text-yellow-400 fill-current" viewBox="0 0 20 20">
@@ -253,17 +277,29 @@ const Shop = () => {
 
                             <div className="flex gap-1.5">
                                 <button
-                                    onClick={() => buyNow(product)}
-                                    className="flex-1 py-1.5 bg-emerald-400 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-all text-xs"
+                                    onClick={() => {
+                                        if (isOutOfStock) {
+                                            showToast('This product is out of stock', 'warning');
+                                            return;
+                                        }
+                                        buyNow(product);
+                                    }}
+                                    disabled={isOutOfStock}
+                                    className="flex-1 py-1.5 bg-emerald-400 hover:bg-emerald-500 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-all text-xs"
                                 >
-                                    Buy Now
+                                    {isOutOfStock ? 'Out of Stock' : 'Buy Now'}
                                 </button>
                                 <button
                                     onClick={() => {
+                                        if (isOutOfStock) {
+                                            showToast('This product is out of stock', 'warning');
+                                            return;
+                                        }
                                         addToCart(product);
                                         showToast(`${product.name} added to cart`, 'success');
                                     }}
-                                    className="px-2 py-1.5 border-2 border-emerald-400 hover:bg-emerald-50 text-emerald-600 font-semibold rounded-lg transition-all"
+                                    disabled={isOutOfStock}
+                                    className="px-2 py-1.5 border-2 border-emerald-400 hover:bg-emerald-50 disabled:border-gray-300 disabled:text-gray-400 text-emerald-600 font-semibold rounded-lg transition-all"
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
@@ -272,7 +308,7 @@ const Shop = () => {
                             </div>
                         </div>
                     </div>
-                ))}
+                )})}
             </div>
 
             {!loading && filteredProducts.length === 0 && (
