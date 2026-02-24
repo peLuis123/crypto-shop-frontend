@@ -54,6 +54,15 @@ export const AuthProvider = ({ children }) => {
     const login = async (email, password) => {
         try {
             const response = await api.post('api/auth/login', { email, password });
+            
+            // Guardar token en localStorage
+            if (response.data.token) {
+                localStorage.setItem('token', response.data.token);
+            }
+            if (response.data.refreshToken) {
+                localStorage.setItem('refreshToken', response.data.refreshToken);
+            }
+            
             setUser(response.data.user);
             setIsAuthenticated(true);
             return response.data;
@@ -65,6 +74,15 @@ export const AuthProvider = ({ children }) => {
     const register = async (userData) => {
         try {
             const response = await api.post('api/auth/register', userData);
+            
+            // Guardar token en localStorage
+            if (response.data.token) {
+                localStorage.setItem('token', response.data.token);
+            }
+            if (response.data.refreshToken) {
+                localStorage.setItem('refreshToken', response.data.refreshToken);
+            }
+            
             setUser(response.data.user);
             setIsAuthenticated(true);
             return response.data;
