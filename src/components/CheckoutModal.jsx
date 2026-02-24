@@ -124,7 +124,7 @@ const CheckoutModal = ({ isOpen, onClose, amount, onSuccess }) => {
                                 </svg>
                             </div>
                             <div>
-                                <h3 className="font-bold text-gray-900">USDT Gateway</h3>
+                                <h3 className="font-bold text-gray-900">TRX Gateway</h3>
                                 <p className="text-xs text-gray-500">SECURE CHECKOUT</p>
                             </div>
                         </div>
@@ -138,7 +138,7 @@ const CheckoutModal = ({ isOpen, onClose, amount, onSuccess }) => {
 
                     <div className="text-center mb-6">
                         <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Total Amount to Pay</p>
-                        <h2 className="text-4xl font-bold text-gray-900 mb-1">{amount.toFixed(2)} <span className="text-emerald-500">USDT</span></h2>
+                        <h2 className="text-4xl font-bold text-gray-900 mb-1">{amount.toFixed(2)} <span className="text-emerald-500">TRX</span></h2>
                         <p className="text-sm text-gray-400">≈ {amount.toFixed(2)} USD</p>
                     </div>
 
@@ -183,7 +183,7 @@ const CheckoutModal = ({ isOpen, onClose, amount, onSuccess }) => {
                         <p className="text-center text-xs text-gray-500 uppercase tracking-wider mb-3">Scan QR to Pay</p>
 
                         <div className="mb-4">
-                            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">USDT (TRC-20) Wallet Address</label>
+                            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">TRX (TRC-20) Wallet Address</label>
                             <div className="flex items-center gap-2">
                                 <input
                                     type="text"
@@ -228,7 +228,7 @@ const CheckoutModal = ({ isOpen, onClose, amount, onSuccess }) => {
                             <div className="flex items-center justify-between">
                                 <span className="text-sm font-semibold text-gray-700">Your Wallet Balance:</span>
                                 <span className={`text-lg font-bold ${hasEnoughBalance ? 'text-emerald-600' : 'text-red-600'}`}>
-                                    {walletBalance } USDT
+                                    {walletBalance } TRX
                                 </span>
                             </div>
                             {!hasEnoughBalance && (
